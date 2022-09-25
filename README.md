@@ -149,8 +149,17 @@ This multilingual model can perform natural language inference (NLI) on 100 lang
 As of December 2021, mDeBERTa-v3-base is the best performing multilingual base-sized transformer model introduced by Microsoft in [this paper](https://arxiv.org/pdf/2111.09543.pdf). 
 
 
-## Intended uses & limitations
-#### How to use the model
+### How to use the model
+#### Simple zero-shot classification pipeline
+```python
+from transformers import pipeline
+classifier = pipeline("zero-shot-classification", model="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli")
+sequence_to_classify = "Angela Merkel ist eine Politikerin in Deutschland und Vorsitzende der CDU"
+candidate_labels = ["politics", "economy", "entertainment", "environment"]
+output = classifier(sequence_to_classify, candidate_labels, multi_label=False)
+print(output)
+```
+#### NLI use-case
 ```python
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
