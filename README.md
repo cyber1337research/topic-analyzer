@@ -22,8 +22,8 @@ A powerful multilingual topic analysis tool that uses state-of-the-art language 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/cyber1337research/cato-topic-analyzer.git
-cd cato-topic-analyzer
+git clone https://github.com/cyber1337research/topic-analyzer.git
+cd topic-analyzer
 ```
 
 2. Install dependencies:
