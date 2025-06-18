@@ -1,6 +1,6 @@
 import streamlit as st
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import pipeline
 import plotly.graph_objects as go
 
 # Define available models
@@ -10,33 +10,43 @@ MODELS = {
     "BART-large-mnli": "facebook/bart-large-mnli"
 }
 
-# Define example texts
+# Define example texts and categories
+CATEGORIES = [
+    "personal financial information",
+    "company financial information",
+    "human resources and employment",
+    "legal consulting",
+    "health and medical information",
+    "customer and client data",
+    "code consulting"
+]
+
 EXAMPLE_TEXTS = {
-    "Personal Financial Information": [
+    "personal financial information": [
         "I just checked my bank account and noticed some charges I don't recognize. Could you help me figure out what's going on?",
         "I'm thinking about investing in some stocks, but I'm not sure where to start. Any advice on how to begin?"
     ],
-    "Company Financial Information": [
+    "company financial information": [
         "Our quarterly revenue has increased by 15%, and expenses have decreased. Let's prepare a report to share with stakeholders.",
         "We need to analyze the budget for the upcoming project to ensure we stay within our financial constraints."
     ],
-    "Human Resources and Employment": [
+    "human resources and employment": [
         "We're planning to hire a new marketing manager. Can you draft a job description and outline the interview process?",
         "An employee has requested information about their benefits package. Could you provide the necessary details?"
     ],
-    "Legal Consulting": [
+    "legal consulting": [
         "We received a notice about new data protection regulations. Let's review our policies to ensure compliance.",
         "There's a contract that needs to be reviewed before we proceed with the partnership. Can you take a look?"
     ],
-    "Health and Medical Information": [
+    "health and medical information": [
         "I have a doctor's appointment next week and need to bring my medical records. How can I access them online?",
         "I've been feeling under the weather lately. Should I schedule a check-up or wait a few more days?"
     ],
-    "Customer and Client Data": [
+    "customer and client data": [
         "A client has updated their contact information. Please make sure our records are current.",
         "We've received feedback from several customers about our service. Let's compile the comments and address any concerns."
     ],
-    "Code Consulting": [
+    "code consulting": [
         "I'm trying to write a function that calculates the average of a list of numbers. Can you help me with a code example?",
         "I'm working on a project that requires me to write a Python script that will update its cached DNS records once an hour. Can you help me with the syntax?"
     ]
@@ -51,96 +61,21 @@ st.set_page_config(
 
 @st.cache_resource
 def load_models():
-    """Load all models and tokenizers."""
+    """Load all models as zero-shot classifiers."""
     loaded_models = {}
     for model_name, model_path in MODELS.items():
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        loaded_models[model_name] = (model, tokenizer)
+        classifier = pipeline("zero-shot-classification", 
+                            model=model_path, 
+                            device=0 if torch.cuda.is_available() else -1)
+        loaded_models[model_name] = classifier
     return loaded_models
 
-def predict_bart(text, model, tokenizer):
-    """Make a prediction using the BART model."""
-    hypotheses = [
-        "This text contains personal financial information.",
-        "This text contains company financial information.",
-        "This text contains human resources and employment information.",
-        "This text contains legal consulting information.",
-        "This text contains health and medical information.",
-        "This text contains customer and client data.",
-        "This text contains computer code consulting requests."
-    ]
-    
-    probs = []
-    
-    for hypothesis in hypotheses:
-        inputs = tokenizer(
-            text,
-            hypothesis,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512,
-            padding=True
-        )
-        
-        with torch.no_grad():
-            outputs = model(**inputs)
-            # BART outputs: [contradiction, neutral, entailment]
-            # We want the entailment probability (index 2)
-            prediction = torch.nn.functional.softmax(outputs.logits, dim=-1)
-            entailment_prob = prediction[0][2].item()  # Index 2 for entailment
-            probs.append(entailment_prob)
-    
-    # Normalize probabilities
-    total = sum(probs)
-    normalized_probs = [p/total for p in probs]
-    
-    return normalized_probs
-
-def predict_deberta(text, model, tokenizer):
-    """Make a prediction using the DeBERTa model."""
-    hypotheses = [
-        "This text contains personal financial information.",
-        "This text contains company financial information.",
-        "This text contains human resources and employment information.",
-        "This text contains legal consulting information.",
-        "This text contains health and medical information.",
-        "This text contains customer and client data.",
-        "This text contains computer code consulting requests."
-    ]
-    
-    probs = []
-    
-    for hypothesis in hypotheses:
-        inputs = tokenizer(
-            text,
-            hypothesis,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512,
-            padding=True
-        )
-        
-        with torch.no_grad():
-            outputs = model(**inputs)
-            # DeBERTa outputs: [entailment, neutral, contradiction]
-            # We want the entailment probability (index 0)
-            prediction = torch.nn.functional.softmax(outputs.logits, dim=-1)
-            entailment_prob = prediction[0][0].item()  # Index 0 for entailment
-            probs.append(entailment_prob)
-    
-    # Normalize probabilities
-    total = sum(probs)
-    normalized_probs = [p/total for p in probs]
-    
-    return normalized_probs
-
-def predict(text, model, tokenizer, model_name):
-    """Dispatch to the appropriate prediction function based on model type."""
-    if "bart" in model_name.lower():
-        return predict_bart(text, model, tokenizer)
-    else:
-        return predict_deberta(text, model, tokenizer)
+def predict(text, classifier):
+    """Make a prediction using the zero-shot classifier."""
+    output = classifier(text, 
+                       candidate_labels=CATEGORIES,
+                       multi_label=False)
+    return output['scores']
 
 def create_comparison_bar_chart(categories, all_probabilities, model_names):
     """Create a horizontal bar chart comparing multiple models."""
@@ -199,17 +134,16 @@ def create_comparison_bar_chart(categories, all_probabilities, model_names):
 def display_results(text, loaded_models):
     """Display the analysis results for all models."""
     with st.spinner("Analyzing..."):
-        categories = list(EXAMPLE_TEXTS.keys())
         all_probabilities = []
         model_predictions = {}
         
         # Get predictions from all models
-        for model_name, (model, tokenizer) in loaded_models.items():
-            probabilities = predict(text, model, tokenizer, model_name.lower())
+        for model_name, classifier in loaded_models.items():
+            probabilities = predict(text, classifier)
             all_probabilities.append(probabilities)
             model_predictions[model_name] = {
                 'probabilities': probabilities,
-                'most_likely': categories[probabilities.index(max(probabilities))],
+                'most_likely': CATEGORIES[probabilities.index(max(probabilities))],
                 'confidence': max(probabilities)
             }
         
@@ -217,7 +151,7 @@ def display_results(text, loaded_models):
         st.subheader("Analysis Results")
         
         # Create and display the comparison bar chart
-        fig = create_comparison_bar_chart(categories, all_probabilities, list(loaded_models.keys()))
+        fig = create_comparison_bar_chart(CATEGORIES, all_probabilities, list(loaded_models.keys()))
         st.plotly_chart(fig, use_container_width=True)
         
         # Display summary table
