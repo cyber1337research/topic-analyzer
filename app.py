@@ -75,7 +75,12 @@ def predict(text, classifier):
     output = classifier(text, 
                        candidate_labels=CATEGORIES,
                        multi_label=False)
-    return output['scores']
+    
+    # Create a dictionary mapping labels to scores
+    scores_dict = dict(zip(output['labels'], output['scores']))
+    
+    # Ensure we return scores in the same order as our CATEGORIES list
+    return [scores_dict[cat] for cat in CATEGORIES]
 
 def create_comparison_bar_chart(categories, all_probabilities, model_names):
     """Create a horizontal bar chart comparing multiple models."""
@@ -141,10 +146,16 @@ def display_results(text, loaded_models):
         for model_name, classifier in loaded_models.items():
             probabilities = predict(text, classifier)
             all_probabilities.append(probabilities)
+            
+            # Find the highest scoring category
+            max_score_idx = probabilities.index(max(probabilities))
+            max_score = probabilities[max_score_idx]
+            predicted_category = CATEGORIES[max_score_idx]
+            
             model_predictions[model_name] = {
                 'probabilities': probabilities,
-                'most_likely': CATEGORIES[probabilities.index(max(probabilities))],
-                'confidence': max(probabilities)
+                'most_likely': predicted_category,
+                'confidence': max_score
             }
         
         # Display results
@@ -163,6 +174,15 @@ def display_results(text, loaded_models):
             with col1:
                 st.markdown(f"**{model_name}**")
                 st.markdown(f"Most likely category: **{predictions['most_likely']}** ({predictions['confidence']:.1%})")
+                
+                # Show top 3 categories
+                sorted_indices = sorted(range(len(predictions['probabilities'])), 
+                                     key=lambda i: predictions['probabilities'][i], 
+                                     reverse=True)[:3]
+                
+                st.markdown("Top 3 categories:")
+                for idx in sorted_indices:
+                    st.markdown(f"- {CATEGORIES[idx]}: {predictions['probabilities'][idx]:.1%}")
         
         # Show differences between models
         with col2:
@@ -177,11 +197,24 @@ def display_results(text, loaded_models):
                 if pred1['most_likely'] == pred2['most_likely']:
                     st.success(f"Both models agree on: **{pred1['most_likely']}**")
                 else:
-                    st.warning(f"Models disagree:\n- {model1}: **{pred1['most_likely']}**\n- {model2}: **{pred2['most_likely']}**")
+                    st.warning(f"Models disagree:\n- {model1}: **{pred1['most_likely']}** ({pred1['confidence']:.1%})\n- {model2}: **{pred2['most_likely']}** ({pred2['confidence']:.1%})")
                 
                 # Compare confidence
                 conf_diff = abs(pred1['confidence'] - pred2['confidence'])
                 st.markdown(f"Confidence difference: **{conf_diff:.1%}**")
+                
+                # Show agreement matrix
+                agreement_scores = []
+                for cat, p1, p2 in zip(CATEGORIES, 
+                                     pred1['probabilities'], 
+                                     pred2['probabilities']):
+                    if abs(p1 - p2) > 0.1:  # Show significant differences
+                        agreement_scores.append(f"- {cat}: {p1:.1%} vs {p2:.1%}")
+                
+                if agreement_scores:
+                    st.markdown("**Significant category differences:**")
+                    for score in agreement_scores:
+                        st.markdown(score)
 
 # Title and description
 st.title("📚 Cato GenAI Topic Analyzer")
