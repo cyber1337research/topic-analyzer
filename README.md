@@ -1,3 +1,67 @@
+# Cato Topic Analyzer
+
+## AI-Security-Squad
+
+A powerful multilingual topic analysis tool that uses state-of-the-art language models to classify text into different categories of sensitive information.
+
+### Features
+
+- Multilingual support through mDeBERTa-v3 models
+- Real-time text classification
+- Interactive visualization of results
+- Support for multiple classification categories:
+  - Personal Financial Information
+  - Company Financial Information
+  - Human Resources and Employment
+  - Legal Consulting
+  - Health and Medical Information
+  - Customer and Client Data
+  - Code Consulting
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/cyber1337research/cato-topic-analyzer.git
+cd cato-topic-analyzer
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+streamlit run app.py
+```
+
+### Models
+
+The application supports two mDeBERTa-v3 models:
+- MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7
+- MoritzLaurer/mDeBERTa-v3-base-mnli-xnli
+
+### Usage
+
+1. Select a model from the dropdown menu
+2. Choose input method:
+   - Enter custom text
+   - Select from examples
+3. View the classification results in an interactive bar chart
+
+### Requirements
+
+- Python 3.8+
+- Streamlit
+- PyTorch
+- Transformers
+- Plotly
+
+### License
+
+MIT License
+
 ---
 language:
 - multilingual
