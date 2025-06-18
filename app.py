@@ -75,7 +75,11 @@ def predict(text, classifier):
     """Make a prediction using the zero-shot classifier."""
     output = classifier(text, 
                        candidate_labels=CATEGORIES,
-                       multi_label=True)  # Enable multi-label classification
+                       multi_label=True)
+    
+    # Debug: Show raw output
+    st.markdown("**Raw Model Output:**")
+    st.json(output)
     
     # Create a dictionary mapping labels to scores
     scores_dict = dict(zip(output['labels'], output['scores']))
